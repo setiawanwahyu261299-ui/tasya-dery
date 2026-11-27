@@ -1,0 +1,1730 @@
+// ============================================================
+// APPS SCRIPT URL — Ganti dengan URL deployment lo
+// ============================================================
+const APPS_SCRIPT_URL =
+  "https://script.google.com/macros/s/AKfycbwB2V_jDquV9BfvNIDppQ-hXWZs19GidgOz9Cz8IGp8sPGdw2HHq3986m0yAcpkvnNR/exec";
+
+/* =============================
+   ANGKA JALAN — dipakai bareng buat angka tanggal Event & total
+   Wishes, makanya ditaruh di luar DOMContentLoaded biar bisa diakses
+   dari initWishes() juga (fungsi terpisah di bawah).
+============================= */
+function animateDateCounter(el, target, duration = 1200) {
+  const start = performance.now();
+  const startValue = target > 0 ? 1 : 0;
+  function tick(now) {
+    const progress = Math.min((now - start) / duration, 1);
+    // easeOutQuad — mulai cepat, pelan-pelan berhenti di angka akhir
+    const eased = 1 - (1 - progress) * (1 - progress);
+    el.textContent = Math.round(startValue + eased * (target - startValue));
+    if (progress < 1) {
+      requestAnimationFrame(tick);
+    } else {
+      el.textContent = target;
+    }
+  }
+  requestAnimationFrame(tick);
+}
+
+/* =============================
+   KARTU UCAPAN — dipakai bareng oleh initWishes() (render dari data
+   Apps Script) dan initRSVP() (biar ucapan tamu langsung nongol di
+   Wishes begitu dia submit RSVP, tanpa nunggu fetch ulang ke server).
+============================= */
+function escapeHTML(str) {
+  if (!str) return "";
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+// FIX: ternyata Apps Script GET selalu balikin "waktu" dalam format
+// "D/M/YYYY, HH.MM.SS" (hasil toLocaleString("id-ID") yang kesimpen
+// di Sheets, titik buat pemisah jam-menit-detik, BUKAN format ISO).
+// "new Date(str)" bawaan browser gak ngerti format ini sama sekali
+// (selalu balikin Invalid Date), makanya badge waktunya dulu gak
+// pernah muncul walau datanya sebenarnya ada. Di sini kita parse
+// manual format itu lewat regex dulu sebelum coba cara biasa (ISO
+// tetap didukung juga, buat jaga-jaga kalau sumbernya beda format).
+function parseWaktu(waktuStr) {
+  if (!waktuStr) return null;
+  const str = String(waktuStr).trim();
+
+  // Format Apps Script: "1/10/2026, 13.58.00" → day/month/year,
+  // hour.minute.second (locale id-ID, bukan ISO).
+  const m = str.match(
+    /^(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s*(\d{1,2})\.(\d{2})\.(\d{2})$/,
+  );
+  if (m) {
+    const [, day, month, year, hour, minute, second] = m.map(Number);
+    const parsed = new Date(year, month - 1, day, hour, minute, second);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  // Fallback — coba format standar (ISO, dll).
+  const fallback = new Date(str);
+  return isNaN(fallback.getTime()) ? null : fallback;
+}
+
+// Ubah timestamp mentah jadi teks relatif "X menit/jam/hari yang
+// lalu". Kalau gagal diparse (format gak dikenal sama sekali),
+// balikin string kosong aja — badge waktunya otomatis gak
+// ditampilkan di kartu, bukan nampilin teks aneh kayak "NaN menit
+// yang lalu".
+function formatRelativeTime(waktuStr) {
+  const then = parseWaktu(waktuStr);
+  if (!then) return "";
+
+  const diffMs = Date.now() - then.getTime();
+  if (diffMs < 0) return "Baru saja";
+
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHour = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHour / 24);
+
+  if (diffSec < 60) return "Baru saja";
+  if (diffMin < 60) return `${diffMin} menit yang lalu`;
+  if (diffHour < 24) return `${diffHour} jam yang lalu`;
+  if (diffDay < 7) return `${diffDay} hari yang lalu`;
+
+  // Lebih dari seminggu — tampilin tanggalnya aja daripada "X minggu
+  // yang lalu" yang kurang informatif buat ucapan yang udah lama.
+  return then.toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function createWishCard(nama, ucapan, hadir, waktu) {
+  const card = document.createElement("div");
+  card.className = "wishes-card";
+  // FIX: badge status kehadiran cuma ditampilkan kalau memang ada
+  // datanya ("Hadir" / "Tidak Hadir" dari RSVP). Ucapan yang dikirim
+  // lewat form Wishes yang berdiri sendiri gak nanya kehadiran, jadi
+  // hadir bakal kosong ("") — badge disembunyikan total, bukan
+  // ke-default jadi "Berhalangan".
+  const showBadge = hadir === "Hadir" || hadir === "Tidak Hadir";
+  const isHadir = hadir === "Hadir";
+  const statusClass = isHadir ? "hadir" : "tidak";
+  const statusText = isHadir ? "Hadir" : "Berhalangan";
+  const relativeTime = formatRelativeTime(waktu);
+  card.innerHTML = `
+    <div class="wishes-card-header">
+      <div class="wishes-card-name">${escapeHTML(nama)}</div>
+      ${
+        showBadge
+          ? `<span class="wishes-card-status ${statusClass}">${statusText}</span>`
+          : ""
+      }
+    </div>
+    <div class="wishes-card-text">${escapeHTML(ucapan)}</div>
+    ${
+      relativeTime
+        ? `<div class="wishes-card-time">${escapeHTML(relativeTime)}</div>`
+        : ""
+    }
+  `;
+  return card;
+}
+
+// FIX: ucapan tamu langsung ditaruh di PALING ATAS daftar Wishes
+// begitu dia submit RSVP — gak nunggu fetch ulang ke Apps Script
+// (yang kadang lambat/cold-start), user langsung liat ucapannya
+// sendiri tanpa jeda sama sekali.
+function addWishToUI(nama, ucapan, hadir, waktu) {
+  const masonry = document.getElementById("wishesMasonry");
+  const empty = document.getElementById("wishesEmpty");
+  const countNumberEl = document.getElementById("wishesCountNumber");
+  if (!masonry || !ucapan) return;
+
+  const card = createWishCard(nama, ucapan, hadir, waktu);
+  card.classList.add("wishes-card-new");
+  masonry.insertBefore(card, masonry.firstChild);
+
+  if (empty) empty.classList.add("hidden");
+
+  if (countNumberEl) {
+    const current = parseInt(countNumberEl.textContent, 10) || 0;
+    countNumberEl.textContent = current + 1;
+  }
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  /* =============================
+     AMBIL NAMA TAMU DARI URL
+     Contoh: ?to=Nabilla+Eko+Putri
+  ============================= */
+  const urlParams = new URLSearchParams(window.location.search);
+  const guestName = urlParams.get("to");
+  const guestEl = document.getElementById("guestName");
+  if (guestName && guestEl) {
+    // FIX: kalau nama tamu ada kata "dan" (misal link dikirim ke 2
+    // orang sekaligus, "Budi dan Ani"), kata "dan"-nya TETAP ditulis
+    // (bukan dihapus) — cuma kata SETELAHNYA yang dipindah ke baris
+    // baru. escapeHTML dulu (nama dari URL, jadi harus di-escape) baru
+    // boleh pakai innerHTML dengan <br>. \s+dan\s+ (dengan spasi di
+    // kedua sisi) biar yang ke-match cuma kata "dan" yang berdiri
+    // sendiri, bukan "dan" yang nempel di tengah kata lain kayak
+    // "Ramadan". Grup "$1" nangkep teks sebelum "dan" biar gak ikut
+    // kehapus pas diganti.
+    // const formatted = escapeHTML(guestName).replace(
+    //   /(\s*)dan\s+/gi,
+    //   "$1dan<br>",
+    // );
+    // guestEl.innerHTML = formatted;
+    guestEl.textContent = guestName;
+  }
+
+  // ===== PERSONALISASI TAMBAHAN — pakai nama tamu dari URL (kalau
+  // ada) di 2 tempat lagi: Countdown & Closing. Fallback teks generik
+  // kalau tamu akses tanpa ?to= di URL, biar tetap enak dibaca. =====
+  const countdownPersonalEl = document.getElementById("countdownPersonal");
+  const closingPersonalEl = document.getElementById("closingPersonal");
+  if (countdownPersonalEl) {
+    countdownPersonalEl.textContent = guestName
+      ? `Menantikan kehadiran ${guestName} di hari bahagia kami 🤍`
+      : "Menantikan kehadiranmu di hari bahagia kami 🤍";
+  }
+  if (closingPersonalEl) {
+    closingPersonalEl.textContent = guestName
+      ? `Terima kasih, ${guestName}, telah menjadi bagian dari kisah kami 🤍`
+      : "Terima kasih telah menjadi bagian dari kisah kami 🤍";
+  }
+
+  /* =============================
+     COVER BUTTON
+  ============================= */
+  const openBtn = document.getElementById("openBtn");
+  const cover = document.getElementById("cover");
+  const bgVideo = document.getElementById("bgVideo");
+  const mainContent = document.getElementById("mainContent");
+
+  if (openBtn && cover && bgVideo && mainContent) {
+    openBtn.addEventListener("click", function () {
+      document.body.style.overflowY = "auto";
+
+      cover.classList.add("fade-out");
+      bgVideo.classList.add("show-video");
+      bgVideo.play().catch(() => {});
+
+      initNetworkWarning();
+
+      setTimeout(() => {
+        cover.style.display = "none";
+        mainContent.style.display = "block";
+
+        // Double rAF biar opacity transition jalan setelah display:block
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            mainContent.classList.add("show-content");
+          });
+        });
+
+        // Progress bar & dot nav baru aktif setelah konten utama
+        // kelihatan — gak ada gunanya nongol duluan pas masih di cover.
+        const scrollProgressEl = document.getElementById("scrollProgress");
+        if (scrollProgressEl) scrollProgressEl.classList.add("visible");
+        const sectionDotsEl = document.getElementById("sectionDots");
+        if (sectionDotsEl) sectionDotsEl.classList.add("visible");
+      }, 1200);
+    });
+  }
+
+  // ===== SEMBUNYIIN TOMBOL MUSIK SEMENTARA — quoteSection, brideSection,
+  // groomSection & closingSection. Bride/Groom ditambahin biar nama
+  // orang tua (yang nempel di bawah nama) gak ketutupan tombol musik
+  // pas discroll lewat situ. =====
+  const musicPlayerEl = document.getElementById("musicPlayer");
+  const quoteSectionEl = document.getElementById("quoteSection");
+  const brideSectionEl = document.getElementById("brideSection");
+  const groomSectionEl = document.getElementById("groomSection");
+  const closingSectionEl = document.getElementById("closingSection");
+  const musicHideTargets = [
+    quoteSectionEl,
+    brideSectionEl,
+    groomSectionEl,
+    closingSectionEl,
+  ].filter(Boolean);
+
+  if (musicPlayerEl && musicHideTargets.length) {
+    // FIX: nyimpen SEMUA section yang lagi kelihatan bareng, bukan cuma
+    // baca status 1 section terakhir yang diproses — biar gak ke-timpa
+    // salah pas 2 section sama-sama ngasih status bareng.
+    const intersectingHideTargets = new Set();
+
+    const musicAutoHideObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            intersectingHideTargets.add(entry.target);
+          } else {
+            intersectingHideTargets.delete(entry.target);
+          }
+        });
+
+        if (intersectingHideTargets.size > 0) {
+          musicPlayerEl.classList.add("auto-hide");
+        } else {
+          musicPlayerEl.classList.remove("auto-hide");
+        }
+      },
+      { threshold: 0.3 },
+    );
+
+    if (openBtn) {
+      openBtn.addEventListener("click", () => {
+        setTimeout(() => {
+          musicHideTargets.forEach((el) => musicAutoHideObserver.observe(el));
+        }, 1300);
+      });
+    }
+  }
+
+  // ===== SCROLL HINT — quoteSection =====
+  // Hilang permanen begitu tamu scroll pertama kali, gak nongol lagi
+  // walau balik ke atas (cuma reset kalau halaman di-refresh, soalnya
+  // state-nya murni variable JS biasa, bukan disimpan di localStorage).
+  const scrollHint = document.getElementById("scrollHint");
+  if (scrollHint) {
+    function hideScrollHint() {
+      scrollHint.classList.add("hidden");
+      window.removeEventListener("scroll", hideScrollHint);
+    }
+    window.addEventListener("scroll", hideScrollHint, { passive: true });
+  }
+
+  // ===== LOADING STATE — GOOGLE MAPS =====
+  const venueMapsFrame = document.getElementById("venueMapsFrame");
+  const venueMapsLoading = document.getElementById("venueMapsLoading");
+  if (venueMapsFrame && venueMapsLoading) {
+    venueMapsFrame.addEventListener("load", () => {
+      venueMapsLoading.classList.add("hidden");
+    });
+  }
+
+  /* =============================
+     COVER ENTRANCE ANIMATION
+  ============================= */
+  const coverElements = document.querySelectorAll(
+    ".logo-wrapper, .couple-wrapper, .guest-wrapper, .button-wrapper",
+  );
+
+  coverElements.forEach((el, index) => {
+    setTimeout(() => {
+      el.classList.add("cover-show");
+    }, index * 200);
+  });
+
+  /* =============================
+     INTERSECTION OBSERVER
+     Semua scroll animation dalam satu observer.
+
+     CLEANUP: sebelumnya tiap section didaftarkan lewat
+     "if (x) observer.observe(x)" satu-satu (9 baris berulang) —
+     digabung jadi satu array + loop biar lebih ringkas dan gampang
+     nambah section baru nanti.
+
+     PERFORMANCE: setelah sebuah elemen kelihatan & dikasih class
+     "show", elemen itu di-unobserve. Animasi ini kan cuma sekali
+     jalan (muncul saat pertama masuk viewport, gak pernah balik ke
+     kondisi awal), jadi gak perlu terus dipantau observer selama
+     sisa hidup halaman — mengurangi kerja observer tiap kali user
+     scroll di halaman yang panjang ini.
+  ============================= */
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("show");
+          observer.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0.15 },
+  );
+
+  const revealTargets = [
+    document.querySelector("#quoteSection .container"),
+    document.querySelector(".journey-title"),
+    ...document.querySelectorAll(".story-item"),
+    document.getElementById("brideSection"),
+    document.getElementById("groomSection"),
+    document.getElementById("countdownSection"),
+    document.getElementById("eventSection"),
+    // Akad & Resepsi sekarang "halaman" sendiri-sendiri — masing²
+    // di-observe terpisah biar fade-in-nya jalan pas user scroll
+    // ke tiap halaman, bukan sekaligus pas judul "The Event" muncul.
+    ...document.querySelectorAll(".event-page"),
+    document.getElementById("venueSection"),
+    document.getElementById("liveSection"),
+    document.getElementById("rsvpSection"),
+    document.getElementById("wishesSection"),
+    // thanksSection sengaja gak didaftarin di sini — dia dapet
+    // observer sendiri di bawah dengan threshold beda (lihat
+    // thanksObserver).
+    document.getElementById("gallerySection"),
+    document.getElementById("closingSection"),
+  ].filter(Boolean); // buang null kalau ada elemen yang gak ketemu
+
+  revealTargets.forEach((el) => observer.observe(el));
+
+  /* =============================
+     OBSERVER TERPISAH — ANGKA TANGGAL EVENT
+     Angka gede "15" di section Event dianimasikan jalan dari 1
+     sampai berhenti di angka aslinya (dibaca dari textContent di
+     HTML, jadi kalau tanggalnya lain, ini otomatis nyesuain — gak
+     perlu ubah angka target manual di JS).
+  ============================= */
+  const eventDateObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const el = entry.target;
+          const target = parseInt(el.textContent.trim(), 10);
+          if (!isNaN(target)) animateDateCounter(el, target);
+          eventDateObserver.unobserve(el);
+        }
+      });
+    },
+    { threshold: 0.5 },
+  );
+
+  const eventDateMainEl = document.querySelector(".event-date-main");
+  if (eventDateMainEl) eventDateObserver.observe(eventDateMainEl);
+
+  /* =============================
+     OBSERVER TERPISAH — THANKS SECTION
+     Section lain pakai threshold 0.15 (15% kelihatan langsung
+     trigger). Khusus Thanks, animasinya baru nyala pas 40% section
+     ini udah ke-scroll — biar gak "ketinggalan" muncul terlalu awal
+     sebelum user beneran sampai di section-nya.
+  ============================= */
+  const thanksObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("show");
+          thanksObserver.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0.4 },
+  );
+
+  const thanksSectionEl = document.getElementById("thanksSection");
+  if (thanksSectionEl) thanksObserver.observe(thanksSectionEl);
+
+  /* =============================
+     SLIDER — Bride & Groom
+     Reusable function
+
+     PERFORMANCE: skip kerja kalau tab lagi di-background
+     (document.hidden). Sebelumnya interval ini terus jalan ganti
+     slide walau user pindah tab / minimize browser — buang-buang
+     CPU & baterai buat animasi yang gak keliatan siapa-siapa.
+  ============================= */
+  function startSlider(selector, interval) {
+    const slides = document.querySelectorAll(selector);
+    if (!slides.length) return;
+    let index = 0;
+    // Toggle arah zoom — gantian tiap kali foto berpindah, biar gak
+    // monoton selalu zoom-in doang.
+    let zoomIn = true;
+
+    function triggerZoom(el) {
+      el.classList.remove("zooming-in", "zooming-out");
+      void el.offsetWidth; // paksa reflow biar animasi bisa restart
+      el.classList.add(zoomIn ? "zooming-in" : "zooming-out");
+      zoomIn = !zoomIn;
+    }
+
+    triggerZoom(slides[0]);
+
+    setInterval(() => {
+      if (document.hidden) return;
+      slides[index].classList.remove("active");
+      index = (index + 1) % slides.length;
+      slides[index].classList.add("active");
+      triggerZoom(slides[index]);
+    }, interval);
+  }
+
+  startSlider(".bride-slide", 4000);
+  startSlider(".groom-slide", 4500);
+  // Interval lebih panjang (6 detik) dari Bride/Groom (4-4.5 detik),
+  // digabung sama transisi 3 detik di CSS — hasilnya slideshow yang
+  // beneran berasa pelan & tenang, bukan buru-buru gonta-ganti foto.
+  startSlider(".thanks-slide", 4000);
+
+  /* =============================
+     RSVP CHAT
+  ============================= */
+  initRSVP();
+
+  /* =============================
+     WISHES
+  ============================= */
+  initWishes();
+  initWishesForm();
+
+  /* =============================
+     GALLERY
+  ============================= */
+  initGallery();
+
+  /* =============================
+     OUR JOURNEY — tap-to-zoom (lightbox terpisah dari Gallery)
+  ============================= */
+  initJourneyLightbox();
+
+  /* =============================
+     BRIDE / GROOM — fun fact reveal
+  ============================= */
+  initFunFacts();
+
+  /* =============================
+     SCROLL PROGRESS BAR & SECTION DOTS NAV
+  ============================= */
+  initScrollProgress();
+  initSectionDots();
+
+  /* =============================
+     LIVE STREAMING PREVIEW
+  ============================= */
+  initLivePreview();
+
+  /* =============================
+     COUNTDOWN TIMER
+  ============================= */
+  const weddingDate = new Date("2026-12-05T08:00:00+07:00");
+
+  function updateCountdown() {
+    const diff = weddingDate - new Date();
+    if (diff <= 0) {
+      ["cdDays", "cdHours", "cdMinutes", "cdSeconds"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = "00";
+      });
+      return;
+    }
+    const pad = (n) => String(Math.floor(n)).padStart(2, "0");
+    const setEl = (id, val) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const newText = pad(val);
+      // ANIMASI: cuma trigger "tick" kalau angkanya BENERAN berubah —
+      // biar Hours/Minutes/Days gak ikut ke-animasi tiap detik padahal
+      // cuma Seconds yang biasanya berubah tiap tick.
+      if (el.textContent !== newText) {
+        el.textContent = newText;
+        el.classList.remove("tick");
+        void el.offsetWidth; // paksa reflow biar animasi bisa restart
+        el.classList.add("tick");
+      }
+    };
+    setEl("cdDays", Math.floor(diff / 86400000));
+    setEl("cdHours", Math.floor((diff % 86400000) / 3600000));
+    setEl("cdMinutes", Math.floor((diff % 3600000) / 60000));
+    setEl("cdSeconds", Math.floor((diff % 60000) / 1000));
+  }
+
+  updateCountdown();
+
+  // PERFORMANCE: skip tick countdown kalau tab di-background,
+  // lalu refresh sekali begitu tab aktif lagi biar angkanya gak
+  // basi pas user balik.
+  setInterval(() => {
+    if (!document.hidden) updateCountdown();
+  }, 1000);
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) updateCountdown();
+  });
+}); // end DOMContentLoaded
+
+/* =============================
+   RSVP FUNCTION
+============================= */
+function initRSVP() {
+  const messagesEl = document.getElementById("rsvpMessages");
+  const inputArea = document.getElementById("rsvpInputArea");
+  const inputEl = document.getElementById("rsvpInput");
+  const sendBtn = document.getElementById("rsvpSendBtn");
+
+  if (!messagesEl || !inputArea || !inputEl || !sendBtn) return;
+
+  // Nama tamu diambil dari parameter URL (?to=...) — sama persis
+  // yang dipakai buat nampilin nama di cover. Kalau ada, RSVP
+  // langsung lompat ke pertanyaan kehadiran (gak perlu tanya nama
+  // lagi). Kalau gak ada (tamu buka link generik tanpa ?to=), tetap
+  // ditanya manual sebagai fallback biar datanya gak kosong.
+  const urlGuestName = new URLSearchParams(window.location.search).get("to");
+
+  let userData = {
+    hadir: "",
+    nama: urlGuestName || "",
+    jumlah: "",
+    ucapan: "",
+  };
+  let currentCallback = null;
+
+  // FIX: kunci penyimpanan localStorage diikat ke nama tamu dari URL
+  // (bukan flag global) — biar kalau ada 2 tamu beda buka link
+  // masing-masing di 1 HP yang sama (misal keluarga gantian pinjam
+  // HP), submission salah satu tamu gak keliru "mengunci" tamu lain.
+  const rsvpStorageKey = "rsvpSubmitted_" + (urlGuestName || "guest");
+
+  // Pasang event listener sekali saja
+  sendBtn.addEventListener("click", handleSend);
+  inputEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") handleSend();
+  });
+
+  function handleSend() {
+    const val = inputEl.value.trim();
+    if (!val || !currentCallback) return;
+    stopChatPulse();
+    inputEl.disabled = true;
+    sendBtn.disabled = true;
+    inputArea.classList.add("hidden");
+    const cb = currentCallback;
+    currentCallback = null;
+    cb(val);
+  }
+
+  inputArea.classList.add("hidden");
+
+  // Mulai percakapan
+  const chatBox = document.querySelector(".rsvp-chat-box");
+  function stopChatPulse() {
+    if (chatBox) chatBox.classList.add("engaged");
+  }
+
+  // FIX: percakapan sekarang di-gate — baru mulai pas section RSVP
+  // beneran kelihatan di layar, bukan otomatis pas halaman dibuka.
+  function startConversation() {
+    showTyping();
+    setTimeout(() => {
+      removeTyping();
+      if (urlGuestName) {
+        addBubbleLeft(
+          `Halo, ${escapeHTML(
+            urlGuestName,
+          )}! Senang sekali kamu sudah membuka undangan kami 🥰`,
+        );
+      } else {
+        addBubbleLeft(
+          "Halo! Senang sekali kamu sudah membuka undangan kami 🥰",
+        );
+      }
+    }, 900);
+
+    setTimeout(() => {
+      if (urlGuestName) {
+        askKehadiran();
+      } else {
+        addBubbleLeft("Boleh tau nama kamu?");
+        showInput("Ketik nama kamu...", handleNama, "text");
+      }
+    }, 1900);
+  }
+
+  function handleNama(nama) {
+    userData.nama = nama;
+    addBubbleRight(nama);
+    setTimeout(() => addBubbleLeft(`Hai ${nama}! 😊`), 600);
+    setTimeout(() => askKehadiran(), 1400);
+  }
+
+  function askKehadiran() {
+    addBubbleLeft("Apakah kamu bisa hadir di hari istimewa kami?");
+    addChoices(
+      [
+        { emoji: "🥂", text: "Insya Allah hadir!" },
+        { emoji: "💔", text: "Maaf, berhalangan hadir" },
+      ],
+      handleHadir,
+    );
+  }
+
+  const rsvpSectionEl = document.getElementById("rsvpSection");
+  const rsvpStartObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          // FIX: kalau tamu ini (berdasarkan nama di URL) udah pernah
+          // submit sebelumnya, jangan ulang obrolannya dari awal —
+          // langsung tunjukkin dia udah konfirmasi, biar gak bisa
+          // isi berkali-kali cuma dengan refresh halaman.
+          let savedRaw = null;
+          try {
+            savedRaw = localStorage.getItem(rsvpStorageKey);
+          } catch (e) {
+            savedRaw = null;
+          }
+          if (savedRaw) {
+            try {
+              const saved = JSON.parse(savedRaw);
+              showAlreadyConfirmed(saved.nama, saved.hadir);
+            } catch (e) {
+              startConversation();
+            }
+          } else {
+            startConversation();
+          }
+          rsvpStartObserver.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0.3 },
+  );
+  if (rsvpSectionEl) rsvpStartObserver.observe(rsvpSectionEl);
+
+  function showAlreadyConfirmed(nama, hadir) {
+    stopChatPulse();
+    const sukses = document.createElement("div");
+    sukses.className = "rsvp-success";
+    sukses.innerHTML = `
+      <div class="rsvp-success-icon">🤍</div>
+      <div class="rsvp-success-title">Halo, ${escapeHTML(nama || "kamu")}!</div>
+      <div class="rsvp-success-desc">
+        Kamu udah konfirmasi kehadiran sebelumnya.<br>
+        ${
+          hadir === "Hadir"
+            ? "Sampai jumpa di hari istimewa kami! 🥂"
+            : "Terima kasih atas doa dan kabarnya. 🤍"
+        }
+      </div>
+    `;
+    messagesEl.appendChild(sukses);
+  }
+
+  function handleHadir(pilihan) {
+    userData.hadir = pilihan === 0 ? "Hadir" : "Tidak Hadir";
+    addBubbleRight(
+      pilihan === 0 ? "Insya Allah hadir! 🎉" : "Maaf, berhalangan hadir 🙏",
+    );
+    setTimeout(() => {
+      addBubbleLeft(
+        pilihan === 0
+          ? "Alhamdulillah, senang sekali! 🤍"
+          : "Tidak apa-apa, terima kasih sudah memberitahu kami 🤍",
+      );
+    }, 600);
+    if (userData.hadir === "Hadir") {
+      setTimeout(() => {
+        addBubbleLeft("Berapa orang yang akan hadir? (termasuk kamu)");
+        showInput("Contoh: 2", handleJumlah, "number");
+      }, 1400);
+    } else {
+      // FIX: RSVP & Wishes sekarang dipisah — RSVP cukup sampai
+      // konfirmasi kehadiran aja, gak lagi nanya mau titip ucapan
+      // di sini. Nulis ucapan pindah ke form sendiri di section Wishes.
+      setTimeout(() => {
+        addBubbleLeft("Terima kasih banyak sudah konfirmasi kehadiranmu! 🤍");
+      }, 1400);
+      setTimeout(() => finalizeRSVP(), 2400);
+    }
+  }
+
+  function handleJumlah(jumlah) {
+    if (isNaN(jumlah) || Number(jumlah) < 1) {
+      addBubbleLeft("Hmm, sepertinya bukan angka yang valid. Coba lagi ya 😊");
+      showInput("Contoh: 2", handleJumlah, "number");
+      return;
+    }
+    userData.jumlah = jumlah;
+    addBubbleRight(`${jumlah} orang`);
+    setTimeout(
+      () =>
+        addBubbleLeft(
+          `Siap! Kami akan menyiapkan tempat untuk ${jumlah} orang 🥰`,
+        ),
+      600,
+    );
+    setTimeout(() => {
+      addBubbleLeft("Terima kasih banyak sudah konfirmasi kehadiranmu! 🤍");
+    }, 1400);
+    setTimeout(() => finalizeRSVP(), 2400);
+  }
+
+  // FIX: titik akhir tunggal — RSVP sekarang berhenti di sini, gak ada
+  // lagi cabang ucapan (dipindah ke form Wishes yang berdiri sendiri).
+  function finalizeRSVP() {
+    inputArea.classList.add("hidden");
+    try {
+      localStorage.setItem(
+        rsvpStorageKey,
+        JSON.stringify({ nama: userData.nama, hadir: userData.hadir }),
+      );
+    } catch (e) {}
+    addBubbleLeft("Sedang menyimpan konfirmasimu...");
+    showTyping();
+    kirimKeSheets();
+  }
+
+  function kirimKeSheets() {
+    const payload = {
+      nama: userData.nama,
+      hadir: userData.hadir,
+      jumlah: userData.jumlah || "-",
+      ucapan: userData.ucapan,
+      waktu: new Date().toLocaleString("id-ID"),
+    };
+
+    fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+      .then(() => {
+        removeTyping();
+        tampilkanSukses();
+      })
+      .catch(() => {
+        removeTyping();
+        tampilkanSukses();
+      });
+  }
+
+  function tampilkanSukses() {
+    inputArea.classList.add("hidden");
+    setTimeout(() => {
+      const sukses = document.createElement("div");
+      sukses.className = "rsvp-success";
+      sukses.innerHTML = `
+        <div class="rsvp-success-icon">🎊</div>
+        <div class="rsvp-success-title">Terima kasih, ${userData.nama}!</div>
+        <div class="rsvp-success-desc">
+          Konfirmasimu sudah kami terima.<br>
+          ${
+            userData.hadir === "Hadir"
+              ? "Sampai jumpa di hari istimewa kami! 🥂"
+              : "Doa dan dukunganmu sangat berarti untuk kami. 🤍"
+          }
+        </div>
+      `;
+      messagesEl.appendChild(sukses);
+      scrollToBottom();
+    }, 600);
+  }
+
+  function addBubbleLeft(text) {
+    const wrap = document.createElement("div");
+    wrap.className = "rsvp-bubble-left";
+    wrap.innerHTML = `<div class="rsvp-bubble-avatar">💌</div><div class="rsvp-bubble">${text}</div>`;
+    messagesEl.appendChild(wrap);
+    scrollToBottom();
+  }
+
+  function addBubbleRight(text) {
+    const wrap = document.createElement("div");
+    wrap.className = "rsvp-bubble-right";
+    wrap.innerHTML = `<div class="rsvp-bubble">${text}</div>`;
+    messagesEl.appendChild(wrap);
+    scrollToBottom();
+  }
+
+  function addChoices(choices, callback) {
+    inputArea.classList.add("hidden");
+    const wrap = document.createElement("div");
+    wrap.className = "rsvp-choices";
+    choices.forEach((c, i) => {
+      const btn = document.createElement("button");
+      btn.className = "rsvp-choice-btn";
+      btn.innerHTML = `${c.emoji} &nbsp;${c.text}`;
+      btn.addEventListener("click", () => {
+        stopChatPulse();
+        wrap
+          .querySelectorAll(".rsvp-choice-btn")
+          .forEach((b) => (b.disabled = true));
+        callback(i);
+      });
+      wrap.appendChild(btn);
+    });
+    messagesEl.appendChild(wrap);
+    scrollToBottom();
+  }
+
+  function showInput(placeholder, callback, type = "text") {
+    currentCallback = callback;
+    inputEl.placeholder = placeholder;
+    inputEl.type = type;
+    inputEl.value = "";
+    inputEl.disabled = false;
+    sendBtn.disabled = false;
+    inputArea.classList.remove("hidden");
+    setTimeout(() => inputEl.focus(), 100);
+    // FIX: scroll ke input saat keyboard muncul di HP
+    setTimeout(
+      () => inputEl.scrollIntoView({ behavior: "smooth", block: "center" }),
+      300,
+    );
+  }
+
+  function showTyping() {
+    const el = document.createElement("div");
+    el.className = "rsvp-typing";
+    el.id = "rsvpTyping";
+    el.innerHTML = `
+      <div class="rsvp-bubble-avatar">💌</div>
+      <div class="rsvp-typing-dots">
+        <div class="rsvp-dot"></div>
+        <div class="rsvp-dot"></div>
+        <div class="rsvp-dot"></div>
+      </div>
+    `;
+    messagesEl.appendChild(el);
+    scrollToBottom();
+  }
+
+  function removeTyping() {
+    const el = document.getElementById("rsvpTyping");
+    if (el) el.remove();
+  }
+
+  function scrollToBottom() {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+}
+
+/* =============================
+   WISHES FUNCTION
+============================= */
+function initWishes() {
+  const masonry = document.getElementById("wishesMasonry");
+  const loadMore = document.getElementById("wishesLoadMore");
+  const loading = document.getElementById("wishesLoading");
+  const empty = document.getElementById("wishesEmpty");
+  const errorBox = document.getElementById("wishesError");
+  const retryBtn = document.getElementById("wishesRetryBtn");
+  const countNumberEl = document.getElementById("wishesCountNumber");
+
+  if (!masonry || !loadMore || !loading || !empty || !errorBox || !retryBtn)
+    return;
+
+  const PER_PAGE = 5;
+  const CACHE_KEY = "wishesCache";
+  let allWishes = [];
+  let currentIndex = 0;
+  // Peta nama tamu (lowercase) → status "Hadir"/"Tidak Hadir", dibangun
+  // ulang tiap kali data baru kebaca (dari cache ATAU dari fetch).
+  // Dipakai renderWishes() buat nyambungin status hadir ke kartu
+  // ucapan yang baris sheet-nya sendiri gak nyimpen hadir.
+  let hadirByName = new Map();
+
+  // FIX: Apps Script (Google) suka "cold start" — request pertama ke
+  // deployment yang lagi "tidur" bisa makan beberapa detik, kadang
+  // bahkan sampai timeout. Sebelumnya tamu cuma liat loading spinner
+  // lama / langsung ketemu pesan error. Sekarang dibikin 2 lapis:
+  // 1) kalau ada data HASIL FETCH TERAKHIR yang kesimpen di
+  //    localStorage, itu ditampilin INSTAN duluan (gak nunggu network
+  //    sama sekali) — tamu langsung lihat ucapan-ucapan yang ada.
+  // 2) di belakang layar, tetap fetch data terbaru; kalau gagal/
+  //    timeout, otomatis dicoba ulang sekali lagi (diam-diam, gak
+  //    ganggu tamu) sebelum nyerah. Kalau masih ada data cache yang
+  //    lagi ditampilin, gagal pun gak masalah — ucapan lama tetap
+  //    kelihatan, cuma gak keupdate ucapan paling baru. Error box cuma
+  //    muncul kalau BENER-BENER gak ada data sama sekali buat
+  //    ditampilin (pertama kali buka & jaringan lagi bermasalah).
+  function readCache() {
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function writeCache(data) {
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+    } catch (e) {}
+  }
+
+  function applyData(data) {
+    hadirByName = new Map();
+    data.forEach((row) => {
+      if (!row.nama) return;
+      if (row.hadir === "Hadir" || row.hadir === "Tidak Hadir") {
+        hadirByName.set(row.nama.trim().toLowerCase(), row.hadir);
+      }
+    });
+
+    allWishes = data.filter((row) => row.ucapan && row.ucapan.trim() !== "");
+    currentIndex = 0;
+    masonry.innerHTML = "";
+
+    if (countNumberEl)
+      animateDateCounter(countNumberEl, allWishes.length, 1000);
+
+    if (allWishes.length === 0) {
+      empty.classList.remove("hidden");
+      loadMore.classList.add("hidden");
+      return;
+    }
+    empty.classList.add("hidden");
+    renderWishes();
+    updateLoadMoreBtn();
+  }
+
+  // FIX: logic fetch dibungkus jadi fungsi sendiri (fetchWishes), biar
+  // bisa dipanggil ulang dari tombol "Muat Ulang" tanpa perlu refresh
+  // seluruh halaman. "isRetry" nandain ini percobaan ke-2 (otomatis,
+  // diam-diam) — kalau gagal lagi, baru beneran nyerah.
+  function fetchWishes(isRetry) {
+    const controller = new AbortController();
+    // Timeout dinaikin ke 15 detik (dari 10 detik) — ngasih ruang lebih
+    // buat cold-start Apps Script yang kadang emang makan waktu.
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    fetch(APPS_SCRIPT_URL, { signal: controller.signal })
+      .then((res) => res.json())
+      .then((data) => {
+        clearTimeout(timeoutId);
+        loading.classList.add("hidden");
+        errorBox.classList.add("hidden");
+        writeCache(data);
+        applyData(data);
+      })
+      .catch(() => {
+        clearTimeout(timeoutId);
+        if (!isRetry) {
+          // Percobaan pertama gagal — diam-diam coba sekali lagi
+          // sebentar lagi, tamu gak perlu lihat/ngelakuin apa-apa.
+          setTimeout(() => fetchWishes(true), 1500);
+          return;
+        }
+        // Udah gagal 2x. Kalau sebelumnya ada data cache yang lagi
+        // ditampilin, biarin aja tetap kelihatan — diam-diam nyerah
+        // tanpa nampilin error ke tamu. Error box cuma muncul kalau
+        // beneran gak ada apa-apa buat ditampilin.
+        loading.classList.add("hidden");
+        if (allWishes.length === 0) {
+          errorBox.classList.remove("hidden");
+          if (countNumberEl) countNumberEl.textContent = "-";
+        }
+      });
+  }
+
+  function loadWishes() {
+    errorBox.classList.add("hidden");
+
+    const cached = readCache();
+    if (cached && cached.length > 0) {
+      // Ada cache — langsung tampilin INSTAN, gak nunggu network.
+      loading.classList.add("hidden");
+      applyData(cached);
+    } else {
+      // Belum ada cache sama sekali (kunjungan pertama / localStorage
+      // kepake orang lain) — baru di sini tampilin loading spinner.
+      loading.classList.remove("hidden");
+      empty.classList.add("hidden");
+      masonry.innerHTML = "";
+      currentIndex = 0;
+      if (countNumberEl) countNumberEl.textContent = "0";
+    }
+
+    fetchWishes(false);
+  }
+
+  // Tombol "Muat Ulang" manual (dipencet tamu) selalu mulai dari awal
+  // (bukan silent retry), biar langsung kasih tau kalau masih gagal.
+  retryBtn.addEventListener("click", () => {
+    loading.classList.remove("hidden");
+    errorBox.classList.add("hidden");
+    fetchWishes(false);
+  });
+
+  loadWishes();
+
+  function renderWishes() {
+    const batch = allWishes.slice(currentIndex, currentIndex + PER_PAGE);
+    const createdCards = [];
+    batch.forEach((wish, i) => {
+      // Baris ucapan sendiri biasanya hadir-nya "-" (RSVP & Wishes
+      // kan baris terpisah) — kalau gitu, coba cari status hadir
+      // tamu ini dari peta hadirByName (hasil baca baris RSVP-nya).
+      const effectiveHadir =
+        wish.hadir === "Hadir" || wish.hadir === "Tidak Hadir"
+          ? wish.hadir
+          : hadirByName.get((wish.nama || "").trim().toLowerCase()) || "";
+      const card = createWishCard(
+        wish.nama,
+        wish.ucapan,
+        effectiveHadir,
+        wish.waktu,
+      );
+      card.style.animationDelay = `${i * 0.08}s`;
+      masonry.appendChild(card);
+      createdCards.push(card);
+    });
+    currentIndex += batch.length;
+    return createdCards;
+  }
+
+  function updateLoadMoreBtn() {
+    if (currentIndex >= allWishes.length) {
+      loadMore.classList.add("hidden");
+    } else {
+      loadMore.classList.remove("hidden");
+    }
+  }
+
+  // FIX: kartu baru yang muncul lewat "Lihat lebih banyak" itu
+  // ke-render di LUAR layar (di bawah, belum kelihatan) — animasi
+  // masuknya udah kelar duluan sebelum tamu sempat scroll ke situ,
+  // jadi kerasa kayak gak ada yang berubah. Sekarang kartu-kartu baru
+  // dikasih highlight (numpang animasi yang sama kayak ucapan
+  // real-time di RSVP) DAN halaman auto-scroll pelan ke kartu
+  // pertama yang baru muncul, biar tamu langsung "diantar" liat
+  // ucapan barunya tanpa perlu nebak-nebak scroll sendiri.
+  loadMore.addEventListener("click", () => {
+    const newCards = renderWishes();
+    updateLoadMoreBtn();
+    if (newCards.length) {
+      newCards.forEach((card) => card.classList.add("wishes-card-new"));
+      newCards[0].scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  });
+}
+
+/* =============================
+   WISHES FORM — form nulis ucapan berdiri sendiri, terpisah dari RSVP.
+   Nama tamu diambil otomatis dari parameter URL (?to=...), sama kayak
+   yang dipakai di cover & RSVP — jadi tamu tinggal nulis ucapannya
+   aja tanpa perlu isi nama lagi.
+============================= */
+function initWishesForm() {
+  const formEl = document.getElementById("wishesForm");
+  const nameEl = document.getElementById("wishesFormName");
+  const inputEl = document.getElementById("wishesFormInput");
+  const submitBtn = document.getElementById("wishesFormSubmit");
+  const successEl = document.getElementById("wishesFormSuccess");
+
+  if (!formEl || !nameEl || !inputEl || !submitBtn || !successEl) return;
+
+  const urlGuestName = new URLSearchParams(window.location.search).get("to");
+  const guestName = urlGuestName || "Tamu";
+
+  nameEl.textContent = guestName;
+
+  // FIX: kunci localStorage terpisah dari RSVP (rsvpSubmitted_...) —
+  // biar submit ucapan gak nyampur sama status konfirmasi kehadiran,
+  // dan tetap diikat per-nama-tamu dari URL biar gak saling kunci
+  // kalau 1 HP dipakai gantian beberapa tamu.
+  const wishStorageKey = "wishSubmitted_" + (urlGuestName || "guest");
+
+  function showSuccess() {
+    formEl.classList.add("hidden");
+    successEl.classList.remove("hidden");
+  }
+
+  try {
+    if (localStorage.getItem(wishStorageKey)) {
+      showSuccess();
+    }
+  } catch (e) {}
+
+  function handleSubmit() {
+    const ucapan = inputEl.value.trim();
+    if (!ucapan) {
+      inputEl.focus();
+      return;
+    }
+
+    submitBtn.disabled = true;
+    inputEl.disabled = true;
+
+    // FIX: ke Apps Script, waktu TETAP dikirim format toLocaleString("id-ID")
+    // kayak semula ("1/10/2026, 13.58.00") — itu format yang Sheets
+    // auto-kenali sebagai kolom tanggal beneran, dan yang konsisten
+    // dibalikin Apps Script pas di-GET (dicek langsung dari response
+    // JSON-nya). Buat kartu yang muncul INSTAN di layar (gak lewat
+    // fetch backend), kita pakai Date object yang sama biar waktunya
+    // sama persis — parseWaktu() di atas ngerti dua-duanya.
+    const nowDate = new Date();
+
+    // FIX: biar badge "HADIR"/"TIDAK HADIR" langsung nongol juga di
+    // kartu yang muncul instan ini (bukan nunggu reload/fetch ulang),
+    // kita intip status RSVP tamu ini dari localStorage — disimpan
+    // initRSVP() di key "rsvpSubmitted_<nama>" pas dia konfirmasi
+    // kehadiran. Kalau belum pernah RSVP (atau RSVP-nya gagal baca),
+    // badge-nya ya gak ditampilkan — itu normal.
+    let rsvpHadir = "";
+    try {
+      const rsvpRaw = localStorage.getItem(
+        "rsvpSubmitted_" + (urlGuestName || "guest"),
+      );
+      if (rsvpRaw) {
+        const rsvpSaved = JSON.parse(rsvpRaw);
+        if (
+          rsvpSaved &&
+          (rsvpSaved.hadir === "Hadir" || rsvpSaved.hadir === "Tidak Hadir")
+        ) {
+          rsvpHadir = rsvpSaved.hadir;
+        }
+      }
+    } catch (e) {}
+
+    // Ucapan langsung nongol di Wishes tanpa nunggu fetch ulang.
+    addWishToUI(guestName, ucapan, rsvpHadir, nowDate.toISOString());
+
+    try {
+      localStorage.setItem(wishStorageKey, "1");
+    } catch (e) {}
+
+    const payload = {
+      nama: guestName,
+      hadir: "-",
+      jumlah: "-",
+      ucapan: ucapan,
+      waktu: nowDate.toLocaleString("id-ID"),
+    };
+
+    fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+      .then(() => showSuccess())
+      .catch(() => showSuccess());
+  }
+
+  submitBtn.addEventListener("click", handleSubmit);
+  inputEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  });
+}
+
+/* =============================
+   GALLERY FUNCTION
+============================= */
+function initGallery() {
+  const items = document.querySelectorAll(".editorial-item");
+  // ANIMASI: kasih custom property --i ke tiap foto berdasarkan
+  // data-index-nya, dipakai CSS buat ngitung delay stagger
+
+  items.forEach((item) => {
+    item.style.setProperty("--i", item.dataset.index % 3);
+  });
+
+  // FIX: tiap foto dikasih observer sendiri-sendiri, biar animasinya
+  // beneran jalan PAS foto itu masuk layar — bukan numpang trigger 1x
+  // dari section (yang keburu "kelar main" duluan sebelum user scroll
+  // sampai foto-foto di baris bawah).
+  const photoObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("show");
+          photoObserver.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0.2 },
+  );
+
+  items.forEach((item) => photoObserver.observe(item));
+  const lightbox = document.getElementById("galleryLightbox");
+  const lbImg = document.getElementById("lbImg");
+  const lbClose = document.getElementById("lbClose");
+  const lbPrev = document.getElementById("lbPrev");
+  const lbNext = document.getElementById("lbNext");
+  const lbCounter = document.getElementById("lbCounter");
+
+  if (!items.length || !lightbox) return;
+
+  // NOTE: .src di sini selalu ngasih URL absolut yang udah di-resolve,
+  // gak peduli foto grid-nya udah kebuka (loading="lazy") atau belum —
+  // jadi aman dipakai buat lightbox tanpa mesti nunggu foto grid
+  // ke-load duluan.
+  const srcs = Array.from(items)
+    .sort((a, b) => parseInt(a.dataset.index) - parseInt(b.dataset.index))
+    .map((item) => item.querySelector("img").src);
+
+  const total = srcs.length;
+  let current = 0;
+
+  function openLightbox(index) {
+    resetImageZoom();
+    current = index;
+    lbImg.src = srcs[current];
+    lbCounter.textContent = `${current + 1} / ${total}`;
+    lightbox.classList.add("active");
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeLightbox() {
+    lightbox.classList.remove("active");
+    // FIX: reset overflow dengan benar biar scroll tidak hilang
+    document.body.style.overflow = "auto";
+    document.body.style.overflowX = "hidden";
+  }
+
+  function prevPhoto() {
+    resetImageZoom();
+    current = (current - 1 + total) % total;
+    lbImg.src = srcs[current];
+    lbCounter.textContent = `${current + 1} / ${total}`;
+  }
+
+  function nextPhoto() {
+    resetImageZoom();
+    current = (current + 1) % total;
+    lbImg.src = srcs[current];
+    lbCounter.textContent = `${current + 1} / ${total}`;
+  }
+
+  items.forEach((item) => {
+    item.addEventListener("click", () =>
+      openLightbox(parseInt(item.dataset.index)),
+    );
+  });
+
+  lbClose.addEventListener("click", closeLightbox);
+  lbPrev.addEventListener("click", prevPhoto);
+  lbNext.addEventListener("click", nextPhoto);
+  lightbox.addEventListener("click", (e) => {
+    if (e.target === lightbox) closeLightbox();
+  });
+
+  // Keyboard navigation
+  document.addEventListener("keydown", (e) => {
+    if (!lightbox.classList.contains("active")) return;
+    if (e.key === "ArrowLeft") prevPhoto();
+    if (e.key === "ArrowRight") nextPhoto();
+    if (e.key === "Escape") closeLightbox();
+  });
+
+  // Swipe support untuk mobile
+  // ===== ZOOM, PAN & SWIPE buat foto di lightbox =====
+  let touchStartX = 0;
+  let touchEndX = 0;
+  let isMultiTouch = false;
+  let currentScale = 1;
+  let currentTranslateX = 0;
+  let currentTranslateY = 0;
+  let startDistance = 0;
+  let startScale = 1;
+  let isPanning = false;
+  let panStartX = 0;
+  let panStartY = 0;
+  let lastTapTime = 0;
+
+  function getDistance(touches) {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function applyImageTransform() {
+    lbImg.style.transform = `translate(${currentTranslateX}px, ${currentTranslateY}px) scale(${currentScale})`;
+  }
+
+  function resetImageZoom() {
+    currentScale = 1;
+    currentTranslateX = 0;
+    currentTranslateY = 0;
+    lbImg.style.transform = "";
+  }
+
+  lightbox.addEventListener(
+    "touchstart",
+    (e) => {
+      if (e.touches.length === 2) {
+        // Mulai PINCH — 2 jari
+        isMultiTouch = false;
+        // startDistance = getDistance(e.touches);
+        // startScale = currentScale;
+      } else if (e.touches.length === 1) {
+        isMultiTouch = false;
+        if (currentScale > 1) {
+          // Foto lagi di-zoom → 1 jari buat GESER (pan), bukan ganti foto
+          isPanning = true;
+          panStartX = e.touches[0].clientX - currentTranslateX;
+          panStartY = e.touches[0].clientY - currentTranslateY;
+        } else {
+          touchStartX = e.changedTouches[0].screenX;
+        }
+
+        // Double-tap buat toggle zoom cepat
+        const now = Date.now();
+        if (now - lastTapTime < 300) {
+          if (currentScale > 1) {
+            resetImageZoom();
+          } else {
+            currentScale = 2;
+            applyImageTransform();
+          }
+        }
+        lastTapTime = now;
+      }
+    },
+    { passive: true },
+  );
+
+  lightbox.addEventListener(
+    "touchmove",
+    (e) => {
+      if (e.touches.length === 2) {
+        // isMultiTouch = true;
+        // const newDistance = getDistance(e.touches);
+        // const scaleChange = newDistance / startDistance;
+        // currentScale = Math.min(Math.max(startScale * scaleChange, 1), 4);
+        // applyImageTransform();
+      } else if (e.touches.length === 1 && isPanning) {
+        currentTranslateX = e.touches[0].clientX - panStartX;
+        currentTranslateY = e.touches[0].clientY - panStartY;
+        applyImageTransform();
+      }
+    },
+    { passive: true },
+  );
+
+  lightbox.addEventListener("touchend", (e) => {
+    if (e.touches.length === 0) isPanning = false;
+
+    if (isMultiTouch) {
+      isMultiTouch = false;
+      if (currentScale <= 1.05) resetImageZoom();
+      return;
+    }
+
+    if (currentScale > 1) return; // lagi di-zoom, swipe jangan ganti foto
+
+    touchEndX = e.changedTouches[0].screenX;
+    const diff = touchStartX - touchEndX;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) nextPhoto();
+      else prevPhoto();
+    }
+  });
+}
+
+/* =============================
+   OUR JOURNEY LIGHTBOX FUNCTION
+   Sengaja TERPISAH dari initGallery()/#galleryLightbox di atas (yang
+   index foto-nya ngikut array .editorial-item) biar gak ada risiko
+   ganggu navigasi Gallery yang udah jalan. Journey cuma butuh
+   tap-to-zoom simpel, gak perlu next/prev.
+============================= */
+function initJourneyLightbox() {
+  const photos = document.querySelectorAll(".journey-zoomable");
+  const lightbox = document.getElementById("journeyLightbox");
+  const lbImg = document.getElementById("jlbImg");
+  const lbClose = document.getElementById("jlbClose");
+
+  if (!photos.length || !lightbox || !lbImg || !lbClose) return;
+
+  function open(src, alt) {
+    lbImg.src = src;
+    lbImg.alt = alt || "";
+    lightbox.classList.add("active");
+    document.body.style.overflow = "hidden";
+  }
+
+  function close() {
+    lightbox.classList.remove("active");
+    document.body.style.overflow = "auto";
+    document.body.style.overflowX = "hidden";
+  }
+
+  photos.forEach((photo) => {
+    const img = photo.querySelector("img");
+    if (!img) return;
+    photo.addEventListener("click", () => open(img.src, img.alt));
+  });
+
+  lbClose.addEventListener("click", close);
+  lightbox.addEventListener("click", (e) => {
+    if (e.target === lightbox) close();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && lightbox.classList.contains("active")) close();
+  });
+}
+
+/* =============================
+   BRIDE / GROOM FUN FACT FUNCTION
+   Tap buat buka/tutup panel fun-fact. Isi teksnya masih PLACEHOLDER
+   di index.html — tinggal diganti teks aslinya kapan saja.
+============================= */
+function initFunFacts() {
+  const pairs = [
+    ["brideFunFactBtn", "brideFunFactPanel"],
+    ["groomFunFactBtn", "groomFunFactPanel"],
+  ];
+
+  pairs.forEach(([btnId, panelId]) => {
+    const btn = document.getElementById(btnId);
+    const panel = document.getElementById(panelId);
+    if (!btn || !panel) return;
+
+    btn.addEventListener("click", () => {
+      const isOpen = panel.classList.toggle("open");
+      btn.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    });
+  });
+}
+
+/* =============================
+   SCROLL PROGRESS BAR FUNCTION
+   Lebar bar diupdate sesuai posisi scroll, di-throttle lewat
+   requestAnimationFrame biar gak bikin event scroll berat.
+============================= */
+function initScrollProgress() {
+  const bar = document.getElementById("scrollProgressBar");
+  if (!bar) return;
+
+  let ticking = false;
+
+  function update() {
+    const scrollTop = window.scrollY || document.documentElement.scrollTop;
+    const docHeight =
+      document.documentElement.scrollHeight - window.innerHeight;
+    const percent = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+    bar.style.width = `${Math.min(Math.max(percent, 0), 100)}%`;
+    ticking = false;
+  }
+
+  window.addEventListener(
+    "scroll",
+    () => {
+      if (!ticking) {
+        requestAnimationFrame(update);
+        ticking = true;
+      }
+    },
+    { passive: true },
+  );
+
+  update();
+}
+
+/* =============================
+   SECTION DOTS NAV FUNCTION
+   Dot aktif ngikutin section mana yang lagi kelihatan di layar
+   (IntersectionObserver), dan tiap dot bisa diklik buat scroll ke
+   section-nya (grup: Bride & Groom share 1 dot, Countdown & Event
+   share 1 dot, RSVP & Wishes share 1 dot — biar gak kebanyakan titik).
+============================= */
+function initSectionDots() {
+  const dots = document.querySelectorAll(".section-dot");
+  if (!dots.length) return;
+
+  const dotByTarget = new Map();
+  dots.forEach((dot) => dotByTarget.set(dot.dataset.target, dot));
+
+  // Peta section id → id dot yang mewakilinya (buat grup gabungan).
+  const groupMap = {
+    quoteSection: "quoteSection",
+    journeySection: "journeySection",
+    brideSection: "brideSection",
+    groomSection: "brideSection",
+    countdownSection: "countdownSection",
+    eventSection: "countdownSection",
+    venueSection: "venueSection",
+    liveSection: "venueSection",
+    gallerySection: "gallerySection",
+    rsvpSection: "rsvpSection",
+    wishesSection: "rsvpSection",
+    thanksSection: "closingSection",
+    closingSection: "closingSection",
+  };
+
+  function setActive(targetId) {
+    const dot = dotByTarget.get(targetId);
+    if (!dot) return;
+    dots.forEach((d) => d.classList.remove("active"));
+    dot.classList.add("active");
+  }
+
+  const observedSections = Object.keys(groupMap)
+    .map((id) => document.getElementById(id))
+    .filter(Boolean);
+
+  const dotsObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          setActive(groupMap[entry.target.id]);
+        }
+      });
+    },
+    { threshold: 0.4 },
+  );
+
+  observedSections.forEach((el) => dotsObserver.observe(el));
+
+  dots.forEach((dot) => {
+    dot.addEventListener("click", (e) => {
+      e.preventDefault();
+      const target = document.getElementById(dot.dataset.target);
+      if (target) target.scrollIntoView({ behavior: "smooth" });
+    });
+  });
+}
+
+initMusicPlayer();
+
+function initMusicPlayer() {
+  const music = document.getElementById("bgMusic");
+  const player = document.getElementById("musicPlayer");
+  const btn = document.getElementById("musicBtn");
+  const icon = document.getElementById("musicIcon");
+
+  if (!music || !player || !btn || !icon) return;
+
+  let isPlaying = false;
+  let fadeInterval = null;
+
+  // ===== TAMPILKAN PLAYER SETELAH COVER DIBUKA =====
+  const openBtnEl = document.getElementById("openBtn");
+  if (openBtnEl) {
+    openBtnEl.addEventListener("click", () => {
+      setTimeout(() => {
+        player.classList.add("visible");
+        playWithFade();
+      }, 200);
+    });
+  }
+
+  // ===== TOGGLE PLAY / PAUSE =====
+  btn.addEventListener("click", () => {
+    if (isPlaying) {
+      pauseWithFade();
+    } else {
+      playWithFade();
+    }
+  });
+
+  // ===== PLAY DENGAN FADE IN =====
+  function playWithFade() {
+    clearInterval(fadeInterval);
+
+    music.volume = 0;
+    music.play().catch(() => {});
+
+    isPlaying = true;
+    player.classList.add("playing");
+    icon.className = "bi bi-pause-fill";
+
+    let steps = 0;
+    fadeInterval = setInterval(() => {
+      steps++;
+      if (music.volume < 0.65) {
+        music.volume = Math.min(music.volume + 0.05, 0.7);
+      }
+      if (music.volume >= 0.65 || steps >= 14) {
+        clearInterval(fadeInterval);
+      }
+    }, 100);
+  }
+
+  // ===== PAUSE DENGAN FADE OUT =====
+  function pauseWithFade() {
+    clearInterval(fadeInterval);
+
+    let steps = 0;
+    fadeInterval = setInterval(() => {
+      steps++;
+      if (music.volume > 0.05) {
+        music.volume = Math.max(music.volume - 0.05, 0);
+      }
+      if (music.volume <= 0.05 || steps >= 14) {
+        music.volume = 0;
+        music.pause();
+        clearInterval(fadeInterval);
+
+        isPlaying = false;
+        player.classList.remove("playing");
+        icon.className = "bi bi-music-note-beamed";
+      }
+    }, 100);
+  }
+}
+
+// ===== SIMPAN KE KALENDER (AKAD & RESEPSI) =====
+const addToCalendarBtn = document.getElementById("addToCalendarBtn");
+if (addToCalendarBtn) {
+  addToCalendarBtn.addEventListener("click", () => {
+    const title = encodeURIComponent("The Wedding of Billa & Rizqi");
+    const details = encodeURIComponent(
+      "Tanpa mengurangi rasa hormat, kami mengundang Anda untuk hadir di perayaan pernikahan Billa & Rizqi.\n\n- Akad Nikah: 08.00 WIB\n- Ngunduh Mantu: 12.00 - Selesai",
+    );
+    const location = encodeURIComponent(
+      "Jl. Adisucipto, Gg. Sepakat Laut, Jalur 2",
+    );
+    // 8 November 2026 jam 12:30 WIB - Selesai (01:00 - 07:00 UTC)
+    const dates = "20261108T010000Z/20261108T070000Z";
+
+    const gcalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&details=${details}&location=${location}`;
+
+    window.open(gcalUrl, "_blank");
+  });
+}
+
+// ===== DETEKSI JARINGAN LAMBAT =====
+function initNetworkWarning() {
+  const toast = document.getElementById("networkToast");
+  const closeBtn = document.getElementById("networkToastClose");
+  const reloadBtn = document.getElementById("networkToastReload");
+  if (!toast || !closeBtn || !reloadBtn) return;
+
+  let dismissed = false;
+  function showToast() {
+    if (dismissed) return;
+    toast.classList.remove("hidden");
+    requestAnimationFrame(() => toast.classList.add("show"));
+  }
+  closeBtn.addEventListener("click", () => {
+    toast.classList.remove("show");
+    dismissed = true;
+  });
+  reloadBtn.addEventListener("click", () => window.location.reload());
+
+  // FIX: fungsi ini sendiri udah dipanggil DARI DALAM klik "Buka
+  // Undangan" (lihat titik panggilnya di bawah), jadi langsung mulai
+  // mantau di sini — gak perlu lagi masang listener klik terpisah,
+  // soalnya klik yang ditunggu udah kejadian barusan.
+  if (bgVideo) {
+    const timeoutId = setTimeout(showToast, 7000);
+    bgVideo.addEventListener("playing", () => clearTimeout(timeoutId), {
+      once: true,
+    });
+  }
+}
+
+// ===== PREVIEW LIVE STREAMING — thumbnail YouTube, klik buat embed =====
+function initLivePreview() {
+  const preview = document.getElementById("livePreview");
+  const thumb = document.getElementById("livePreviewThumb");
+  if (!preview || !thumb) return;
+
+  const videoId = preview.dataset.videoId;
+  if (!videoId || videoId === "GANTI_DENGAN_ID_VIDEO") return;
+
+  thumb.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+
+  preview.addEventListener("click", () => {
+    preview.innerHTML = `<iframe
+      src="https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1"
+      title="Live Streaming"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      allowfullscreen
+    ></iframe>`;
+  });
+}

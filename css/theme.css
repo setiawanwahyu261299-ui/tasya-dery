@@ -1,0 +1,722 @@
+/* ==========================================================
+   THEME: White Clean + Blue — dimuat PALING AKHIR (setelah
+   style.css & responsive.css), isinya penyesuaian khusus.
+   ========================================================== */
+html,
+body {
+  background: #fff;
+  color: var(--blue);
+}
+body {
+  background-image: radial-gradient(
+    rgba(var(--blue-rgb), 0.035) 1px,
+    transparent 1px
+  );
+  background-size: 3px 3px;
+}
+
+/* video & overlay dimatikan (diganti putih polos) */
+#bgVideo,
+.video-overlay {
+  display: none !important;
+}
+
+/* ===== COVER: putih + foto hitam-putih dalam bingkai ===== */
+#cover {
+  background: #fff !important;
+}
+.cover-overlay {
+  background: transparent !important;
+}
+#cover::before {
+  content: "";
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 20dvh;
+  bottom: 30dvh;
+  background: url("../assets/cover_3.JPG") center/cover no-repeat;
+  filter: grayscale(1) contrast(1.05);
+  border-radius: 18px;
+  z-index: 0;
+}
+.logo-wrapper {
+  top: 3dvh;
+}
+.logo {
+  width: 80px;
+  filter: none;
+}
+.couple-wrapper {
+  top: auto;
+  bottom: 23dvh;
+}
+.couple-name {
+  font-size: 46px;
+  font-weight: 400;
+  line-height: 1.1;
+}
+.guest-wrapper {
+  top: auto;
+  bottom: 12dvh;
+}
+.guest {
+  font-family: var(--font-hand);
+  font-size: 20px;
+  font-weight: 400;
+}
+#openBtn {
+  border: 1.5px solid var(--blue);
+  border-radius: 999px;
+  color: var(--blue);
+  background: transparent;
+}
+#openBtn .icon svg * {
+  stroke: var(--blue);
+}
+#openBtn:hover {
+  background: var(--blue);
+  color: #fff;
+}
+#openBtn:hover .icon svg * {
+  stroke: #fff;
+}
+
+/* ===== FOTO: hitam-putih, sudut membulat ===== */
+img {
+  border-radius: 14px;
+}
+.story-photo img,
+.bride-photo img,
+.groom-photo img,
+.editorial-item img,
+.event-film-frame img,
+.closing-photo img,
+.thanks-slide,
+.countdown-bg {
+  filter: grayscale(1);
+}
+.logo,
+.lb-img,
+.jlb-img {
+  border-radius: 0;
+}
+
+/* judul section: Bristol, besar, biru */
+[class$="-title-word"],
+.journey-word,
+.couple-name,
+.wedding-couple,
+.event-page-heading,
+.bride-name,
+.groom-name,
+.thanks-names,
+.event-date-main {
+  font-family: var(--font-display);
+  font-weight: 400;
+}
+.quote-text,
+.countdown-message,
+.story-desc,
+.thanks-message,
+.closing-quote-text {
+  font-family: var(--font-hand);
+  font-size: 1.2em;
+  line-height: 1.5;
+}
+
+/* tombol & input */
+button {
+  font-family: var(--font-body);
+}
+input,
+textarea {
+  color: var(--blue);
+  background: #fff;
+  border-color: rgba(var(--blue-rgb), 0.35);
+}
+::placeholder {
+  color: rgba(var(--blue-rgb), 0.5);
+}
+iframe {
+  filter: grayscale(1);
+}
+.music-btn {
+  background: #fff !important;
+  color: var(--blue) !important;
+  border: 1.5px solid var(--blue) !important;
+}
+
+/* ===== QUOTE SECTION: layout ala referensi ===== */
+#quoteSection {
+  align-items: flex-start;
+  padding: 56px 22px 90px;
+}
+#quoteSection .container {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.qs-names {
+  font-family: var(--font-display);
+  font-weight: 400;
+  line-height: 0.95;
+  text-align: left;
+  width: 100%;
+  margin-bottom: 22px;
+}
+.qs-bride {
+  display: block;
+  font-size: clamp(64px, 22vw, 92px);
+  padding-left: 2%;
+}
+.qs-groom {
+  display: block;
+  font-size: clamp(64px, 22vw, 92px);
+  padding-left: 26%;
+  margin-top: -4px;
+}
+.qs-photo {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4/3.1;
+  margin-bottom: 26px;
+}
+.qs-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 18px;
+  filter: grayscale(1) contrast(1.05);
+}
+.qs-doodle {
+  position: absolute;
+  color: var(--blue);
+  z-index: 2;
+  pointer-events: none;
+}
+.qs-spark {
+  width: 34px;
+  left: 8%;
+  top: 12%;
+}
+.qs-star {
+  width: 46px;
+  right: 5%;
+  top: 10%;
+}
+#quoteSection .quote-wrapper {
+  margin: 0 0 24px;
+}
+#quoteSection .quote-text {
+  font-family: var(--font-hand);
+  font-size: 18px;
+  line-height: 1.35;
+  color: var(--blue);
+}
+#quoteSection .quote-source {
+  font-size: 14px;
+  margin-top: 8px;
+  opacity: 0.8;
+}
+.qs-date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: var(--font-display);
+  line-height: 1.1;
+}
+.qs-day {
+  font-size: 34px;
+}
+.qs-full {
+  font-size: 44px;
+}
+
+/* ==========================================================
+   RESPONSIVE FIX — cover pakai flex column (bukan posisi absolute
+   berbasis vh), jadi aman di tinggi layar HP berapa pun.
+   ========================================================== */
+#cover {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100dvh;
+  padding: max(14px, 2.5dvh) 20px max(16px, 3dvh);
+  gap: clamp(8px, 1.6dvh, 16px);
+}
+.logo-wrapper,
+.couple-wrapper,
+.guest-wrapper,
+.button-wrapper {
+  position: static !important;
+  top: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+  transform: none !important;
+  width: auto !important;
+  flex: 0 0 auto;
+  z-index: 2;
+}
+.cover-show {
+  transform: none !important;
+}
+.logo-wrapper {
+  order: 0;
+}
+.logo {
+  width: clamp(44px, 8dvh, 64px) !important;
+  height: auto;
+  filter: brightness(0) saturate(100%) invert(17%) sepia(96%) saturate(3300%)
+    hue-rotate(216deg) brightness(92%);
+}
+#cover::before {
+  position: static !important;
+  inset: auto !important;
+  order: 1;
+  flex: 1 1 auto;
+  min-height: 110px;
+  width: 100%;
+  max-width: 420px;
+}
+.couple-wrapper {
+  order: 2;
+}
+.couple-name {
+  font-size: clamp(34px, 11vw, 48px) !important;
+  white-space: nowrap;
+}
+.guest-wrapper {
+  order: 3;
+}
+.guest {
+  font-size: clamp(16px, 4.6vw, 20px) !important;
+  line-height: 1.35;
+}
+#guestName {
+  font-size: clamp(18px, 5vw, 22px) !important;
+  margin-top: 2px;
+  padding: 0 12px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.button-wrapper {
+  order: 4;
+}
+#openBtn {
+  padding: 11px 22px;
+}
+
+/* quote: nama gak boleh wrap, tulisan tangan gak miring */
+.qs-bride,
+.qs-groom {
+  white-space: nowrap;
+  font-size: clamp(50px, 17vw, 84px);
+}
+#quoteSection .quote-text,
+.quote-text {
+  animation: none !important;
+  transform: none !important;
+  letter-spacing: 0;
+}
+
+/* layar lebar: kartu putih di atas latar biru muda (bukan hitam) */
+@media (min-width: 768px) {
+  body {
+    background: #e9effa;
+  }
+  #cover,
+  #mainContent {
+    background: #fff;
+    box-shadow: 0 0 60px rgba(var(--blue-rgb), 0.14);
+    border-left: 1px solid rgba(var(--blue-rgb), 0.1);
+    border-right: 1px solid rgba(var(--blue-rgb), 0.1);
+  }
+}
+.quote-source {
+  animation: none !important;
+  transform: none !important;
+  letter-spacing: 0.5px;
+}
+.qs-day {
+  font-size: clamp(26px, 8vw, 34px);
+}
+.qs-full {
+  font-size: clamp(30px, 10vw, 44px);
+  white-space: nowrap;
+}
+
+/* ===== OUR JOURNEY: timeline vertikal, foto berwarna ===== */
+#journeySection {
+  background: none;
+  padding: 70px 20px;
+}
+.story-list {
+  position: relative;
+  gap: 64px;
+  padding: 8px 0;
+}
+.story-list::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(var(--blue-rgb), 0.35) 8%,
+    rgba(var(--blue-rgb), 0.35) 92%,
+    transparent
+  );
+}
+.story-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 0;
+}
+.story-photo {
+  width: 76%;
+  aspect-ratio: 4/5;
+  overflow: visible;
+  background: #fff;
+  border: 7px solid #fff;
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(var(--blue-rgb), 0.18);
+  position: relative;
+  z-index: 1;
+}
+.story-item.odd .story-photo {
+  transform: translateX(-5%) rotate(-2.5deg);
+}
+.story-item.even .story-photo {
+  transform: translateX(5%) rotate(2.5deg);
+}
+.story-photo img {
+  border-radius: 8px;
+  filter: none !important;
+  transform: none !important;
+}
+.story-photo::after {
+  display: none;
+}
+.story-item.odd .story-year,
+.story-item.even .story-year {
+  top: -16px;
+  bottom: auto;
+  left: auto;
+  right: -12px;
+  background: var(--blue);
+  color: #fff;
+  padding: 2px 16px;
+  border-radius: 999px;
+  font-size: 26px;
+  letter-spacing: 1px;
+  opacity: 1;
+}
+.story-info {
+  background: #fff;
+  border: none;
+  padding: 22px 14px 4px;
+  align-items: center;
+}
+.story-item.odd .story-info,
+.story-item.even .story-info {
+  text-align: center;
+}
+.story-item.odd .story-info::before,
+.story-item.even .story-info::before {
+  display: none;
+}
+.story-item.odd .story-sep,
+.story-item.even .story-sep {
+  margin: 0 auto 12px;
+}
+.story-title {
+  font-size: 30px;
+  font-weight: 400;
+}
+.story-desc {
+  font-size: 20px;
+  line-height: 1.35;
+  opacity: 0.9;
+  font-style: normal;
+  max-width: 300px;
+}
+.story-item.odd .story-photo,
+.story-item.even .story-photo {
+  order: 0;
+}
+.story-item.odd .story-info,
+.story-item.even .story-info {
+  order: 1;
+}
+
+/* ===== BRIDE & GROOM: bingkai arch + ornamen pita / dasi ===== */
+#brideSection,
+#groomSection {
+  background: none;
+  padding: 84px 24px 40px;
+  min-height: 0;
+}
+.bride-wrapper,
+.groom-wrapper {
+  margin: 0 auto;
+  max-width: 420px;
+}
+.bride-photo,
+.groom-photo {
+  width: 76%;
+  height: auto;
+  max-height: none;
+  aspect-ratio: 3/4;
+  margin: 0 auto 64px;
+  overflow: visible;
+  background: #e9effa;
+  border-radius: 999px 999px 20px 20px;
+}
+.bride-photo::after,
+.groom-photo::after {
+  content: "";
+  position: absolute;
+  inset: -9px;
+  border: 1.5px solid var(--blue);
+  border-radius: inherit;
+  pointer-events: none;
+}
+.bride-slide,
+.groom-slide {
+  border-radius: inherit;
+  animation: none !important;
+  transform: none !important;
+}
+.bride-photo img,
+.groom-photo img {
+  filter: none !important;
+}
+.orn {
+  position: absolute;
+  left: 50%;
+  color: var(--blue);
+  z-index: 4;
+  pointer-events: none;
+  overflow: visible;
+}
+.orn-bow {
+  width: 92px;
+  top: 50px;
+  transform: translateX(-50%);
+}
+.orn-tie {
+  width: 58px;
+  left: auto;
+  right: -18px;
+  top: -40px;
+  transform: rotate(16deg);
+}
+.bride-vertical,
+.groom-vertical {
+  writing-mode: horizontal-tb;
+  top: auto;
+  bottom: -18px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  background: #fff;
+  padding: 0 14px;
+  z-index: 5;
+  opacity: 1 !important;
+}
+.bride-vertical {
+  left: -14px;
+  right: auto;
+  transform: rotate(-5deg) !important;
+}
+.groom-vertical {
+  right: -14px;
+  left: auto;
+  transform: rotate(5deg) !important;
+}
+.bride-the,
+.groom-the {
+  font-size: 30px;
+  color: var(--blue);
+}
+.bride-word,
+.groom-word {
+  font-size: 38px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--blue);
+}
+.bride-info,
+.groom-info {
+  text-align: center !important;
+  border: none;
+  border-radius: 0;
+}
+.bride-name-wrap,
+.groom-name-wrap {
+  border: none;
+  padding: 0 0 10px;
+}
+.bride-name-wrap::before,
+.groom-name-wrap::before {
+  display: none;
+}
+.bride-name,
+.groom-name {
+  font-size: clamp(30px, 9vw, 40px);
+  line-height: 1.1;
+}
+.bride-name-sep,
+.groom-name-sep {
+  margin: 12px auto 0;
+}
+.bride-parents,
+.groom-parents {
+  border: none;
+  padding: 10px 0;
+}
+.bride-parents-label,
+.groom-parents-label {
+  font-family: var(--font-hand);
+  font-size: 22px;
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 0.85;
+}
+.bride-parents-name,
+.groom-parents-name {
+  font-size: 15px;
+  font-style: normal;
+  opacity: 0.85;
+}
+.bride-instagram,
+.groom-instagram {
+  padding: 8px 16px;
+  margin-top: 6px;
+  border: 1.5px solid rgba(var(--blue-rgb), 0.4);
+  border-radius: 999px;
+  float: none;
+}
+
+.bride-name,
+.groom-name {
+  font-family: "Instrument Serif", serif;
+  font-size: clamp(34px, 10vw, 44px);
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+.bride-name small,
+.groom-name small {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 14px;
+  letter-spacing: 1px;
+  margin-top: 6px;
+  opacity: 0.85;
+}
+
+/* ===== COUNTDOWN: bulatan biru, tanpa quote ===== */
+.countdown-bg,
+.countdown-overlay {
+  display: none;
+}
+#countdownSection {
+  background: #fff;
+  padding: 80px 22px;
+  min-height: 0;
+}
+.countdown-inner {
+  gap: 26px;
+  max-width: 420px;
+}
+.countdown-title {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.cd-hand {
+  font-family: var(--font-hand);
+  font-size: 26px;
+  line-height: 1;
+  margin-bottom: 15px;
+}
+.countdown-title-word {
+  font-family: var(--font-display);
+  font-size: clamp(46px, 15vw, 64px);
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 1;
+  line-height: 1;
+}
+.cd-spark {
+  position: absolute;
+  width: 30px;
+  right: -34px;
+  top: -8px;
+  color: var(--blue);
+}
+.countdown-grid {
+  background: none;
+  border: none;
+  gap: 10px;
+  max-width: none;
+  width: 100%;
+}
+.countdown-item {
+  aspect-ratio: 1;
+  justify-content: center;
+  gap: 2px;
+  padding: 0;
+  background: #fff;
+  backdrop-filter: none;
+  border: 1.5px solid var(--blue);
+  border-radius: 50%;
+}
+.countdown-item:nth-child(odd) {
+  transform: rotate(-4deg);
+}
+.countdown-item:nth-child(even) {
+  transform: rotate(4deg);
+}
+.countdown-num {
+  font-size: clamp(24px, 8vw, 34px);
+  font-weight: 400;
+}
+.countdown-accent {
+  display: none;
+}
+.countdown-unit {
+  font-family: var(--font-hand);
+  font-size: 16px;
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 0.9;
+}
+.cd-date {
+  font-family: var(--font-hand);
+  font-size: 28px;
+  line-height: 1;
+}
+.event-calendar-btn {
+  background: var(--blue);
+  border: none;
+  border-radius: 999px;
+  box-shadow: none;
+  padding: 13px 26px;
+}
+.event-calendar-btn,
+.event-calendar-btn * {
+  color: #fff !important;
+}
+.event-calendar-btn:hover {
+  background: #083a99;
+}

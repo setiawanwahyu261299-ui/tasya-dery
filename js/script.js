@@ -2,7 +2,7 @@
 // APPS SCRIPT URL — Ganti dengan URL deployment lo
 // ============================================================
 const APPS_SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbwB2V_jDquV9BfvNIDppQ-hXWZs19GidgOz9Cz8IGp8sPGdw2HHq3986m0yAcpkvnNR/exec";
+  "https://script.google.com/macros/s/AKfycbxOa1TJv4F8wffUGVFTHWQN8dM7upLwewLbbZCHgwWBkSATS3l5lv2WkNshTmvSH9wx7g/exec";
 
 /* =============================
    ANGKA JALAN — dipakai bareng buat angka tanggal Event & total
@@ -204,13 +204,16 @@ document.addEventListener("DOMContentLoaded", function () {
   const bgVideo = document.getElementById("bgVideo");
   const mainContent = document.getElementById("mainContent");
 
-  if (openBtn && cover && bgVideo && mainContent) {
+  if (openBtn && cover && mainContent) {
     openBtn.addEventListener("click", function () {
       document.body.style.overflowY = "auto";
 
       cover.classList.add("fade-out");
-      bgVideo.classList.add("show-video");
-      bgVideo.play().catch(() => {});
+
+      if (bgVideo) {
+        bgVideo.classList.add("show-video");
+        bgVideo.play().catch(() => {});
+      }
 
       initNetworkWarning();
 
@@ -1661,15 +1664,13 @@ function initMusicPlayer() {
 const addToCalendarBtn = document.getElementById("addToCalendarBtn");
 if (addToCalendarBtn) {
   addToCalendarBtn.addEventListener("click", () => {
-    const title = encodeURIComponent("The Wedding of Billa & Rizqi");
+    const title = encodeURIComponent("The Wedding of Tasya & Dery");
     const details = encodeURIComponent(
-      "Tanpa mengurangi rasa hormat, kami mengundang Anda untuk hadir di perayaan pernikahan Billa & Rizqi.\n\n- Akad Nikah: 08.00 WIB\n- Ngunduh Mantu: 12.00 - Selesai",
+      "Tanpa mengurangi rasa hormat, kami mengundang Anda untuk hadir di perayaan pernikahan Tasya & Dery.\n\n- Akad Nikah: 08.00 WIB\n- Resepsi: 13.00 - 18.00",
     );
-    const location = encodeURIComponent(
-      "Jl. Adisucipto, Gg. Sepakat Laut, Jalur 2",
-    );
-    // 8 November 2026 jam 12:30 WIB - Selesai (01:00 - 07:00 UTC)
-    const dates = "20261108T010000Z/20261108T070000Z";
+    const location = encodeURIComponent("Mempawah Convention Cnter");
+    // 5 Desember 2026 jam 01:00 WIB - Selesai (07:00 - 18:00 UTC)
+    const dates = "20261205T010000Z/20261205T070000Z";
 
     const gcalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&details=${details}&location=${location}`;
 
@@ -1679,6 +1680,7 @@ if (addToCalendarBtn) {
 
 // ===== DETEKSI JARINGAN LAMBAT =====
 function initNetworkWarning() {
+  const bgVideo = document.getElementById("bgVideo");
   const toast = document.getElementById("networkToast");
   const closeBtn = document.getElementById("networkToastClose");
   const reloadBtn = document.getElementById("networkToastReload");

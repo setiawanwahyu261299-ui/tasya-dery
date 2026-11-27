@@ -96,7 +96,7 @@
          diputar (setelah tombol "Buka Undangan" diklik), bukan
          didownload diam-diam sejak halaman dibuka.
          ============================= -->
-    <video
+    <!-- <video
       id="bgVideo"
       muted
       loop
@@ -104,7 +104,7 @@
       preload="none"
       poster="assets/cover_3.JPG"
     ></video>
-    <div class="video-overlay"></div>
+    <div class="video-overlay"></div> -->
 
     <!-- =============================
          SCROLL PROGRESS BAR — nunjukkin berapa persen halaman udah
@@ -188,8 +188,11 @@
       <div class="cover-overlay"></div>
 
       <!-- LOGO -->
-      <div class="logo-wrapper">
-        <img src="assets/logo-new.png" alt="Logo Inisial" class="logo" />
+      <!-- FOTO COVER -->
+      <div class="cv-photo">
+        <svg class="cv-doodle cv-spark" viewBox="0 0 40 60" aria-hidden="true"><path d="M14 2 L18 22 L30 28 L18 34 L14 56 L10 34 L0 28 L10 22 Z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/><path d="M33 4 L35 12 L40 14 L35 16 L33 24 L31 16 L26 14 L31 12 Z" fill="currentColor"/></svg>
+        <svg class="cv-doodle cv-star" viewBox="0 0 60 90" aria-hidden="true"><path d="M14 4 L17 12 L25 12 L19 17 L21 25 L14 20 L7 25 L9 17 L3 12 L11 12 Z" fill="currentColor"/><path d="M40 30 C 30 50, 52 62, 38 86" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><circle cx="50" cy="36" r="4" fill="none" stroke="currentColor" stroke-width="2.5"/></svg>
+        <img src="assets/cover/cover1.jpg" alt="Tasya & Dery" decoding="async" />
       </div>
 
       <!-- NAMA PASANGAN -->
@@ -746,111 +749,123 @@
 
       <!-- ==============EVENT SECTION============== -->
       <section id="eventSection">
-        <!-- ===== INTRO: judul + save the date ===== -->
         <div class="container event-intro">
-          <div class="event-section-title">
-            <span class="event-title-the">The</span>
-            <span class="event-title-word">Event</span>
-            <div class="event-title-underline"></div>
-          </div>
-
-          <p class="event-label">Save the Date</p>
-
-          <div class="event-date-block">
-            <div class="event-day-sub">Sabtu</div>
-            <div class="event-date-main">05</div>
-            <div class="event-month-year-sub">Desember 2026</div>
-          </div>
-
-          <div class="event-divider">
-            <div class="event-divider-line"></div>
-            <div class="event-divider-diamond"></div>
-            <div class="event-divider-line"></div>
+          <svg
+            class="ev-spark ev-spark-a"
+            viewBox="0 0 40 60"
+            aria-hidden="true"
+          >
+            <path
+              d="M14 2 L18 22 L30 28 L18 34 L14 56 L10 34 L0 28 L10 22 Z"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M33 4 L35 12 L40 14 L35 16 L33 24 L31 16 L26 14 L31 12 Z"
+              fill="currentColor"
+            />
+          </svg>
+          <svg
+            class="ev-spark ev-spark-b"
+            viewBox="0 0 40 60"
+            aria-hidden="true"
+          >
+            <path
+              d="M14 2 L18 22 L30 28 L18 34 L14 56 L10 34 L0 28 L10 22 Z"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M33 4 L35 12 L40 14 L35 16 L33 24 L31 16 L26 14 L31 12 Z"
+              fill="currentColor"
+            />
+          </svg>
+          <span class="ev-hand">Save the date</span>
+          <h2 class="ev-title">The Event</h2>
+          <div class="ev-date">
+            <div class="ev-day">Sabtu</div>
+            <div class="event-date-main ev-num">05</div>
+            <div class="ev-month">Desember 2026</div>
           </div>
         </div>
 
-        <!-- ===== HALAMAN AKAD NIKAH ===== -->
-        <div class="event-page akad">
-          <div class="event-film-frame">
-            <div class="film-sprockets"></div>
-            <img
-              src="assets/akad_nikah.jpg"
-              alt="Momen Akad Nikah"
-              loading="lazy"
-              decoding="async"
-            />
-            <div class="film-sprockets"></div>
-            <span class="film-frame-tag">01</span>
+        <!-- AKAD NIKAH -->
+        <div class="event-page akad ev-card">
+          <div class="ev-icon">
+            <svg viewBox="0 0 48 48" aria-hidden="true">
+              <circle
+                cx="18"
+                cy="29"
+                r="11"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+              />
+              <circle
+                cx="30"
+                cy="29"
+                r="11"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+              />
+              <path d="M30 6l4 5-4 5-4-5z" fill="currentColor" />
+            </svg>
           </div>
-
-          <h3 class="event-page-heading">Akad Nikah</h3>
-          <span class="event-page-subheading">The Holy Ceremony</span>
-
-          <div class="event-page-divider">
-            <div class="event-divider-diamond"></div>
+          <h3 class="ev-card-title">Akad Nikah</h3>
+          <span class="ev-card-sub">The Holy Ceremony</span>
+          <div class="ev-row">
+            <span class="ev-label">Tanggal</span
+            ><span class="ev-value">Sabtu, 05 Desember 2026</span>
           </div>
-
-          <div class="event-info-box">
-            <div class="event-info-row">
-              <span class="event-info-label">Tanggal</span>
-              <span class="event-info-value">Sabtu, 05 Desember 2026</span>
-            </div>
-            <div class="event-info-row time">
-              <span class="event-info-label">Waktu</span>
-              <span class="event-info-value time">08.00 WIB</span>
-            </div>
-            <div class="event-info-row location">
-              <span class="event-info-label">Lokasi</span>
-              <span class="event-info-venue"
-                >Mempawah Convention Center (MCC)</span
-              >
-              <!-- <span class="event-info-address"
-                >Jl. Dinoyo No. 131-133, Tegalsari, Surabaya</span
-              > -->
-            </div>
+          <div class="ev-row">
+            <span class="ev-label">Waktu</span
+            ><span class="ev-time">08.00 WIB - Selesai</span>
+          </div>
+          <div class="ev-row">
+            <span class="ev-label">Lokasi</span>
+            <span class="ev-venue">Mempawah Convention Center (MCC) </span>
+            <span class="ev-addr"
+              >Jl. Raden Kusno, Terusan, Kec. Mempawah Hilir, Kab. Mempawah,
+              Kalimantan Barat</span
+            >
           </div>
         </div>
 
-        <!-- ===== HALAMAN RESEPSI NIKAH ===== -->
-        <div class="event-page resepsi">
-          <div class="event-film-frame">
-            <div class="film-sprockets"></div>
-            <img
-              src="assets/resepsi.jpg"
-              alt="Momen Resepsi Nikah"
-              loading="lazy"
-              decoding="async"
-            />
-            <div class="film-sprockets"></div>
-            <span class="film-frame-tag">02</span>
+        <!-- NGUNDUH MANTU -->
+        <div class="event-page resepsi ev-card">
+          <div class="ev-icon">
+            <svg viewBox="0 0 48 48" aria-hidden="true">
+              <path
+                d="M24 40C8 29 6 17 14 12c5-3 9 0 10 4 1-4 5-7 10-4 8 5 6 17-10 28z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linejoin="round"
+              />
+            </svg>
           </div>
-
-          <h3 class="event-page-heading">Resepsi</h3>
-          <span class="event-page-subheading">The Wedding Celebration</span>
-
-          <div class="event-page-divider">
-            <div class="event-divider-diamond"></div>
+          <h3 class="ev-card-title">Resepsi</h3>
+          <span class="ev-card-sub">The Wedding Celebration</span>
+          <div class="ev-row">
+            <span class="ev-label">Tanggal</span
+            ><span class="ev-value">Sabtu, 05 Desember 2026</span>
           </div>
-
-          <div class="event-info-box">
-            <div class="event-info-row">
-              <span class="event-info-label">Tanggal</span>
-              <span class="event-info-value">Sabtu, 05 Desember 2026</span>
-            </div>
-            <div class="event-info-row time">
-              <span class="event-info-label">Waktu</span>
-              <span class="event-info-value time">13.00 – 18.00</span>
-            </div>
-            <div class="event-info-row location">
-              <span class="event-info-label">Lokasi</span>
-              <span class="event-info-venue"
-                >Mempawah Convention Center (MCC)</span
-              >
-              <!-- <span class="event-info-address"
-                >Jl. Adisucipto, Gg. Sepakat Laut, Jalur 2<br />
-                Kubu Raya - Kalimantan Barat</span
-              > -->
-            </div>
+          <div class="ev-row">
+            <span class="ev-label">Waktu</span
+            ><span class="ev-time">13.00 – 18.00 WIB</span>
+          </div>
+          <div class="ev-row">
+            <span class="ev-label">Lokasi</span>
+            <span class="ev-venue">Mempawah Convention Center (MCC) </span>
+            <span class="ev-addr"
+              >Jl. Raden Kusno, Terusan, Kec. Mempawah Hilir, Kab. Mempawah,
+              Kalimantan Barat</span
+            >
           </div>
         </div>
       </section>
@@ -1131,7 +1146,7 @@
             </div>
           </div>
 
-          <p class="rsvp-note">Konfirmasi kehadiran sebelum 08 November 2026</p>
+          <p class="rsvp-note">Konfirmasi kehadiran sebelum </br> 05 Desember 2026</p>
         </div>
       </section>
 
@@ -1264,35 +1279,14 @@
       <!-- ===== CLOSING SECTION ===== -->
       <section id="closingSection">
         <div class="closing-inner">
-          <div class="closing-logo">
-            <img
-              src="assets/logo-new.png"
-              alt="Logo Tasya & Dery"
-              class="closing-logo-img"
-              loading="lazy"
-              decoding="async"
-            />
-          </div>
-
           <div class="closing-photos">
             <div class="closing-photo left">
-              <img
-                src="assets/closing/closing.jpg"
-                alt="Momen Tasya & Dery"
-                loading="lazy"
-                decoding="async"
-              />
+              <img src="assets/closing/closing.jpg" alt="Momen Tasya & Dery" loading="lazy" decoding="async" />
             </div>
             <div class="closing-photo right">
-              <img
-                src="assets/closing/closing2.jpg"
-                alt="Momen Tasya & Dery"
-                loading="lazy"
-                decoding="async"
-              />
+              <img src="assets/closing/closing2.jpg" alt="Momen Tasya & Dery" loading="lazy" decoding="async" />
             </div>
           </div>
-
           <div class="closing-quote-wrapper">
             <p class="closing-quote-text">
               Dari sini, kisah kita baru saja dimulai semoga selalu penuh cinta,
@@ -1300,10 +1294,7 @@
             </p>
             <p class="closing-quote-source">Tasya & Dery</p>
           </div>
-
-          <div class="closing-hashtag">#TASYANDERY</div>
-
-          <!-- <p class="closing-personal" id="closingPersonal"></p> -->
+          <div class="closing-hashtag"><span>#TASYANDERY</span></div>
         </div>
       </section>
 

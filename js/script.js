@@ -1668,7 +1668,7 @@ if (addToCalendarBtn) {
     const details = encodeURIComponent(
       "Tanpa mengurangi rasa hormat, kami mengundang Anda untuk hadir di perayaan pernikahan Tasya & Dery.\n\n- Akad Nikah: 08.00 WIB\n- Resepsi: 13.00 - 18.00",
     );
-    const location = encodeURIComponent("Mempawah Convention Cnter");
+    const location = encodeURIComponent("Mempawah Convention Center (MCC)");
     // 5 Desember 2026 jam 01:00 WIB - Selesai (07:00 - 18:00 UTC)
     const dates = "20261205T010000Z/20261205T070000Z";
 
